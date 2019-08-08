@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
-	"runtime"
 	"time"
 
 	"go.uber.org/zap"
@@ -55,12 +53,12 @@ func newLog(dir string, prefix string, opt *LogOptions) *Log {
 		timeLocation, _ = time.LoadLocation("Asia/Jakarta")
 	)
 
-	logFile := createLogFile(create(dir), prefix, timeLocation)
+	logFile := makeLogFile(create(dir), prefix, timeLocation)
 
-	cfg = newConfig(opt.Development, logFile, timeLocation)
+	cfg = newConfig(opt.Development, logFile, timeLocation, opt.OutputFile...)
 	if opt.Development {
-		cfg.OutputPaths = append(cfg.OutputPaths, "stdout")
-		cfg.ErrorOutputPaths = append(cfg.ErrorOutputPaths, "stdout")
+		// cfg.OutputPaths = append(cfg.OutputPaths, "stdout")
+		// cfg.ErrorOutputPaths = append(cfg.ErrorOutputPaths, "stdout")
 	}
 
 	logger, err := cfg.Build()
@@ -84,9 +82,12 @@ func newLog(dir string, prefix string, opt *LogOptions) *Log {
 func create(dir string) string {
 	if dir == "" {
 		dir = LstdFile
+		// dir = Join("./", LstdFile)
 	}
-	_, currentFile, _, _ := runtime.Caller(0)
-	dir = filepath.Join(filepath.Dir(currentFile), dir)
+	// _, currentFile, _, _ := runtime.Caller(0)
+	// dir = filepath.Join(filepath.Dir(currentFile), dir)
+
+	// log.Fatal(dir)
 
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		fmt.Printf("create folder in: %s\n", dir)
@@ -98,22 +99,22 @@ func create(dir string) string {
 	return dir
 }
 
-// createLogFile set log filename
+// makeLogFile set log filename
 // if there's prefix,
 // logfile will be dir/prefix-yyyy-mm-dd.log, else
 // logfile will be dir/yyyy-mm-dd.log
-func createLogFile(dir, prefix string, localTime *time.Location) string {
-	var logFile = Join(time.Now().In(localTime).Format(StdLogFile), ".", LstdFile)
+func makeLogFile(dir, prefix string, localTime *time.Location) string {
+	logFile := Join(time.Now().In(localTime).Format(StdLogFile), ".", LstdFile)
 	if prefix != "" {
-		logFile = Join(prefix, "-", logFile)
+		return Join(dir, "/", prefix, "-", logFile)
 	}
-	return filepath.Join(dir, logFile)
+	return Join(dir, "/", logFile)
 }
 
 // newConfig set config for custom-zap logger
 // set log's file to filename
 // set log's time with timeLocation
-func newConfig(dev bool, filename string, localTime *time.Location) (cfg zap.Config) {
+func newConfig(dev bool, filename string, localTime *time.Location, outFile ...string) (cfg zap.Config) {
 	if !dev {
 		cfg = zap.Config{
 			Level:       zap.NewAtomicLevelAt(zap.InfoLevel),
@@ -150,6 +151,13 @@ func newConfig(dev bool, filename string, localTime *time.Location) (cfg zap.Con
 	}
 	cfg.OutputPaths = []string{filename}
 	cfg.ErrorOutputPaths = []string{filename}
+
+	if len(outFile) > 0 {
+		for _, out := range outFile {
+			cfg.OutputPaths = append(cfg.OutputPaths, out)
+			cfg.ErrorOutputPaths = append(cfg.ErrorOutputPaths, out)
+		}
+	}
 
 	return cfg
 }
