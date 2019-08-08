@@ -12,7 +12,10 @@ func main() {
 		Development: true,
 		OutputFile:  nil,
 	}
-	logger := gorc.New("log/oauth", "", opt)
+	logger := gorc.New("./log/oauth", "", opt)
+
+	// f, err := os.OpenFile("test.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	// l := log.New()
 
 	logger.Log("a full service", map[string]interface{}{"request": "a request", "response": "a response"}, nil)
 	logger.Log("an empty service", nil, nil)
