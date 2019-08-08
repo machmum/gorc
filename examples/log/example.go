@@ -8,8 +8,12 @@ import (
 
 func main() {
 	// logger := zaplog.New(cfg.LogFile, cfg.Server.Oauth.Development, cfg.Server.Oauth.Name)
+	// get unique reqID
+	reqID := gorc.RequestID()
+
 	opt := &gorc.LogOptions{
-		Development: true,
+		LogKey:      reqID,
+		Development: false,
 		OutputFile:  nil,
 	}
 	logger := gorc.NewLogger("./log/oauth", "", opt)
