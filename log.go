@@ -37,12 +37,14 @@ type (
 	// LogOptions represent option to custom-zap logger
 	// If Development true, log will create production-ready logger,
 	// else log will be development-ready logger.
+	// LogKey is unique-identifier-key in log, must be unique in each request
 	// Output file is another output file. If you want
 	// logger to write log to multiple file, add other source here.
 	// e.g : if you want logger to log to file and console, add "stdout" to LogOptions.OutputFile
 	LogOptions struct {
 		Development bool
-		OutputFile  []string
+		LogKey      string
+		OutputFile []string
 	}
 )
 
@@ -61,7 +63,7 @@ func newLogger(dir string, prefix string, opt *LogOptions) *Log {
 
 	logFile := makeLogFile(create(dir), prefix, timeLocation)
 
-	cfg = newConfig(opt.Development, logFile, timeLocation, opt.OutputFile...)
+	cfg = newConfig(opt.Development, opt.LogKey, logFile, timeLocation, opt.OutputFile...)
 	if opt.Development {
 		// cfg.OutputPaths = append(cfg.OutputPaths, "stdout")
 		// cfg.ErrorOutputPaths = append(cfg.ErrorOutputPaths, "stdout")
@@ -115,7 +117,7 @@ func makeLogFile(dir, prefix string, localTime *time.Location) string {
 // newConfig set config for custom-zap logger
 // set log's file to filename
 // set log's time with timeLocation
-func newConfig(dev bool, filename string, localTime *time.Location, outFile ...string) (cfg zap.Config) {
+func newConfig(dev bool, logKey string, outputFile string, localTime *time.Location, outFile ...string) (cfg zap.Config) {
 	if !dev {
 		cfg = zap.Config{
 			Level:       zap.NewAtomicLevelAt(zap.InfoLevel),
@@ -147,11 +149,15 @@ func newConfig(dev bool, filename string, localTime *time.Location, outFile ...s
 		}
 	}
 
+	if logKey != "" {
+		cfg.InitialFields = map[string]interface{}{"key": logKey}
+	}
+
 	cfg.EncoderConfig.EncodeTime = func(t time.Time, e zapcore.PrimitiveArrayEncoder) {
 		e.AppendString(time.Now().In(localTime).Format(StdLogTime))
 	}
-	cfg.OutputPaths = []string{filename}
-	cfg.ErrorOutputPaths = []string{filename}
+	cfg.OutputPaths = []string{outputFile}
+	cfg.ErrorOutputPaths = []string{outputFile}
 
 	if len(outFile) > 0 {
 		for _, out := range outFile {
