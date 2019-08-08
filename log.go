@@ -17,7 +17,7 @@ const (
 )
 
 type (
-	// Logger represents logging interface
+	// Logger represents logger interface
 	Logger interface {
 		Log(msg string, params map[string]interface{}, err error)
 		Fatal(v ...interface{})
@@ -26,28 +26,34 @@ type (
 		GetTimeLocation() *time.Location
 	}
 
-	// Log represents custom-zap logger
+	// Log represents logger / custom zap-logger
 	Log struct {
 		logFile string
 		config  *zap.Config
 		sugar   *zap.SugaredLogger
 		time    *time.Location
 	}
+
 	// LogOptions represent option to custom-zap logger
+	// If Development true, log will create production-ready logger,
+	// else log will be development-ready logger.
+	// Output file is another output file. If you want
+	// logger to write log to multiple file, add other source here.
+	// e.g : if you want logger to log to file and console, add "stdout" to LogOptions.OutputFile
 	LogOptions struct {
 		Development bool
 		OutputFile  []string
 	}
 )
 
-// New instantiates new custom-zap logger
-func New(dir string, prefix string, opt *LogOptions) *Log {
-	return newLog(dir, prefix, opt)
+// NewLogger instantiates new custom-zap logger
+func NewLogger(dir string, prefix string, opt *LogOptions) *Log {
+	return newLogger(dir, prefix, opt)
 }
 
-// newLog return new custom-zap logger
+// newLogger return new custom-zap logger
 // set default logFile to yyyy-mm-dd.log
-func newLog(dir string, prefix string, opt *LogOptions) *Log {
+func newLogger(dir string, prefix string, opt *LogOptions) *Log {
 	var (
 		cfg             zap.Config
 		timeLocation, _ = time.LoadLocation("Asia/Jakarta")
@@ -82,12 +88,7 @@ func newLog(dir string, prefix string, opt *LogOptions) *Log {
 func create(dir string) string {
 	if dir == "" {
 		dir = LstdFile
-		// dir = Join("./", LstdFile)
 	}
-	// _, currentFile, _, _ := runtime.Caller(0)
-	// dir = filepath.Join(filepath.Dir(currentFile), dir)
-
-	// log.Fatal(dir)
 
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		fmt.Printf("create folder in: %s\n", dir)
