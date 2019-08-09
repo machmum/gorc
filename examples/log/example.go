@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"os"
 
 	gl "github.com/machmum/gorc/log"
 	req "github.com/machmum/gorc/request"
@@ -12,10 +14,10 @@ func main() {
 	// get unique reqID
 
 	opt := &gl.LogOptions{
-		Development: true,
-		WithTrace:   true,
-		RefID:       req.RequestID(),
-		OutputFile:  nil,
+		Level:      gl.LLvlDevelopment,
+		WithTrace:  true,
+		RefID:      req.RequestID(),
+		OutputFile: nil,
 	}
 	logger := gl.NewLogger("./log/oauth", "", opt)
 
@@ -25,5 +27,13 @@ func main() {
 	logger.Log("a full error service", map[string]interface{}{"request": "a request", "response": "a response"}, fmt.Errorf("found an error in the service"))
 	logger.Log("an empty error service", nil, fmt.Errorf("found an error in the service"))
 
-	logger.Fatal("stop logger...")
+	// logger.Fatal("stop logger...")
+
+	l := log.New(os.Stdout, "", log.LstdFlags)
+	aFunc(l)
+}
+
+func aFunc(l *log.Logger) {
+	l.Printf("test log")
+	l.Fatal()
 }
