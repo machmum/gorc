@@ -6,14 +6,16 @@ import (
 	"os"
 	"time"
 
+	req "github.com/machmum/gorc/request"
+	str "github.com/machmum/gorc/string"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 const (
-	LstdFile   = "log"
-	StdLogTime = "2006/01/02 15:04:05"
-	StdLogFile = "2006-01-02"
+	LstdFile   = "log"                 // initial value for log's directory
+	StdLogTime = "2006/01/02 15:04:05" // log's default datetime
+	StdLogFile = "2006-01-02"          // log's default filename
 )
 
 type (
@@ -50,7 +52,7 @@ type (
 	}
 )
 
-// NewLogger instantiates new custom-zap logger
+// NewLogger initiate new custom-zap logger
 func NewLogger(dir string, prefix string, opt *LogOptions) *Log {
 	return opt.newLogger(dir, prefix)
 }
@@ -121,14 +123,14 @@ func (opt *LogOptions) newConfig(logFile string, localTime *time.Location) (cfg 
 	if opt.RefID != "" {
 		used = true
 		if opt.WithTrace {
-			cfg.InitialFields = map[string]interface{}{"trace-id": RequestID(), "ref-id": opt.RefID}
+			cfg.InitialFields = map[string]interface{}{"trace-id": req.RequestID(), "ref-id": opt.RefID}
 		} else {
 			cfg.InitialFields = map[string]interface{}{"ref-id": opt.RefID}
 		}
 	}
 
 	if opt.WithTrace && !used {
-		cfg.InitialFields = map[string]interface{}{"trace-id": RequestID()}
+		cfg.InitialFields = map[string]interface{}{"trace-id": req.RequestID()}
 	}
 
 	cfg.EncoderConfig.EncodeTime = func(t time.Time, e zapcore.PrimitiveArrayEncoder) {
@@ -171,21 +173,11 @@ func create(dir string) string {
 // logfile will be dir/prefix-yyyy-mm-dd.log, else
 // logfile will be dir/yyyy-mm-dd.log
 func makeLogFile(dir, prefix string, localTime *time.Location) string {
-	logFile := Join(time.Now().In(localTime).Format(StdLogFile), ".", LstdFile)
+	logFile := str.StringBuilder(time.Now().In(localTime).Format(StdLogFile), ".", LstdFile)
 	if prefix != "" {
-		return Join(dir, "/", prefix, "-", logFile)
+		return str.StringBuilder(dir, "/", prefix, "-", logFile)
 	}
-	return Join(dir, "/", logFile)
-}
-
-func (l *Log) GetOutputFile() string {
-	return l.logFile
-}
-
-// GetTimeLocation return time location
-// Used to get time.Local in projects
-func (l *Log) GetTimeLocation() *time.Location {
-	return l.time
+	return str.StringBuilder(dir, "/", logFile)
 }
 
 // Log logs using zap log.
@@ -216,10 +208,22 @@ func (l *Log) Log(msg string, params map[string]interface{}, err error) {
 	}
 }
 
+// Fatal uses fmt.Sprint to construct and log a message, then calls os.Exit.
 func (l *Log) Fatal(v ...interface{}) {
 	l.sugar.Fatal(v...)
 }
 
+// Fatalf uses fmt.Sprintf to log a templated message, then calls os.Exit.
 func (l *Log) Fatalf(format string, v ...interface{}) {
 	l.sugar.Fatal(fmt.Sprintf(format, v...))
+}
+
+// GetOutputFile returns log's filename name.
+func (l *Log) GetOutputFile() string {
+	return l.logFile
+}
+
+// GetTimeLocation return time location used in logs
+func (l *Log) GetTimeLocation() *time.Location {
+	return l.time
 }

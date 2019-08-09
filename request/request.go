@@ -7,6 +7,8 @@ import (
 	"os"
 	"strings"
 	"sync/atomic"
+
+	gorc "github.com/machmum/gorc/string"
 )
 
 // Ported from Goji's middleware, source:
@@ -34,7 +36,7 @@ func RequestID() string {
 		b64 = base64.StdEncoding.EncodeToString(buf[:])
 		b64 = strings.NewReplacer("+", "", "/", "").Replace(b64)
 	}
-	prefix = Join(hostname, b64[0:10])
+	prefix = gorc.StringBuilder(hostname, b64[0:10])
 
 	return fmt.Sprintf("%s-%06d", prefix, atomic.AddUint64(&reqid, 1))
 }

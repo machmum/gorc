@@ -2,7 +2,8 @@ package gorc
 
 import "strings"
 
-func Join(strs ...string) string {
+// StringBuilder return concatenated string from given strings
+func StringBuilder(strs ...string) string {
 	var sb strings.Builder
 	for _, str := range strs {
 		sb.WriteString(str)

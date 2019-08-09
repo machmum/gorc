@@ -3,20 +3,21 @@ package main
 import (
 	"fmt"
 
-	"github.com/machmum/gorc"
+	gl "github.com/machmum/gorc/log"
+	req "github.com/machmum/gorc/request"
 )
 
 func main() {
 	// logger := zaplog.New(cfg.LogFile, cfg.Server.Oauth.Development, cfg.Server.Oauth.Name)
 	// get unique reqID
 
-	opt := &gorc.LogOptions{
+	opt := &gl.LogOptions{
 		Development: true,
 		WithTrace:   true,
-		RefID:       gorc.RequestID(),
+		RefID:       req.RequestID(),
 		OutputFile:  nil,
 	}
-	logger := gorc.NewLogger("./log/oauth", "", opt)
+	logger := gl.NewLogger("./log/oauth", "", opt)
 
 	logger.Log("a full service", map[string]interface{}{"request": "a request", "response": "a response"}, nil)
 	logger.Log("an empty service", nil, nil)
