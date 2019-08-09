@@ -9,11 +9,11 @@ import (
 func main() {
 	// logger := zaplog.New(cfg.LogFile, cfg.Server.Oauth.Development, cfg.Server.Oauth.Name)
 	// get unique reqID
-	reqID := gorc.RequestID()
 
 	opt := &gorc.LogOptions{
-		LogKey:      reqID,
-		Development: false,
+		Development: true,
+		WithTrace:   true,
+		RefID:       gorc.RequestID(),
 		OutputFile:  nil,
 	}
 	logger := gorc.NewLogger("./log/oauth", "", opt)
