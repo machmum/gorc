@@ -37,25 +37,27 @@ type (
 	// LogOptions represent option to custom-zap logger
 	// If Development true, log will create production-ready logger,
 	// else log will be development-ready logger.
-	// LogKey is unique-identifier-key in log, must be unique in each request
+	// WithTrace set trace-id to logs output.
+	// RefID will set ref-id to logs output.
 	// Output file is another output file. If you want
 	// logger to write log to multiple file, add other source here.
 	// e.g : if you want logger to log to file and console, add "stdout" to LogOptions.OutputFile
 	LogOptions struct {
 		Development bool
-		LogKey      string
-		OutputFile []string
+		WithTrace   bool
+		RefID       string
+		OutputFile  []string
 	}
 )
 
 // NewLogger instantiates new custom-zap logger
 func NewLogger(dir string, prefix string, opt *LogOptions) *Log {
-	return newLogger(dir, prefix, opt)
+	return opt.newLogger(dir, prefix)
 }
 
 // newLogger return new custom-zap logger
 // set default logFile to yyyy-mm-dd.log
-func newLogger(dir string, prefix string, opt *LogOptions) *Log {
+func (opt *LogOptions) newLogger(dir string, prefix string) *Log {
 	var (
 		cfg             zap.Config
 		timeLocation, _ = time.LoadLocation("Asia/Jakarta")
@@ -63,7 +65,8 @@ func newLogger(dir string, prefix string, opt *LogOptions) *Log {
 
 	logFile := makeLogFile(create(dir), prefix, timeLocation)
 
-	cfg = newConfig(opt.Development, opt.LogKey, logFile, timeLocation, opt.OutputFile...)
+	// cfg = opt.newConfig(opt.Development, opt.LogKey, logFile, timeLocation, opt.OutputFile...)
+	cfg = opt.newConfig(logFile, timeLocation)
 	if opt.Development {
 		// cfg.OutputPaths = append(cfg.OutputPaths, "stdout")
 		// cfg.ErrorOutputPaths = append(cfg.ErrorOutputPaths, "stdout")
@@ -81,6 +84,71 @@ func newLogger(dir string, prefix string, opt *LogOptions) *Log {
 		sugar:   logger.Sugar(),
 		time:    timeLocation,
 	}
+}
+
+// newConfig set config for custom-zap logger
+// set log's file to filename
+// set log's time with timeLocation
+func (opt *LogOptions) newConfig(logFile string, localTime *time.Location) (cfg zap.Config) {
+	if !opt.Development {
+		cfg = zap.Config{
+			Level:       zap.NewAtomicLevelAt(zap.InfoLevel),
+			Development: false,
+			Sampling: &zap.SamplingConfig{
+				Initial:    100,
+				Thereafter: 100,
+			},
+			Encoding:      "json",
+			EncoderConfig: zap.NewProductionEncoderConfig(),
+		}
+	} else {
+		cfg = zap.Config{
+			Level:         zap.NewAtomicLevelAt(zapcore.DebugLevel),
+			Development:   true,
+			DisableCaller: true,
+			Encoding:      "console",
+			EncoderConfig: zapcore.EncoderConfig{
+				// Keys can be anything except the empty string.
+				TimeKey:    "T",
+				LevelKey:   "L",
+				NameKey:    "N",
+				MessageKey: "M",
+				// StacktraceKey:  "S",
+				LineEnding:     zapcore.DefaultLineEnding,
+				EncodeLevel:    zapcore.CapitalLevelEncoder,
+				EncodeDuration: zapcore.StringDurationEncoder,
+			},
+		}
+	}
+
+	var used bool
+	if opt.RefID != "" {
+		used = true
+		if opt.WithTrace {
+			cfg.InitialFields = map[string]interface{}{"trace-id": RequestID(), "ref-id": opt.RefID}
+		} else {
+			cfg.InitialFields = map[string]interface{}{"ref-id": opt.RefID}
+		}
+	}
+
+	if opt.WithTrace && !used {
+		cfg.InitialFields = map[string]interface{}{"trace-id": RequestID()}
+	}
+
+	cfg.EncoderConfig.EncodeTime = func(t time.Time, e zapcore.PrimitiveArrayEncoder) {
+		e.AppendString(time.Now().In(localTime).Format(StdLogTime))
+	}
+	cfg.OutputPaths = []string{logFile}
+	cfg.ErrorOutputPaths = []string{logFile}
+
+	if len(opt.OutputFile) > 0 {
+		for _, out := range opt.OutputFile {
+			cfg.OutputPaths = append(cfg.OutputPaths, out)
+			cfg.ErrorOutputPaths = append(cfg.ErrorOutputPaths, out)
+		}
+	}
+
+	return cfg
 }
 
 // create set log's directory location and,
@@ -112,61 +180,6 @@ func makeLogFile(dir, prefix string, localTime *time.Location) string {
 		return Join(dir, "/", prefix, "-", logFile)
 	}
 	return Join(dir, "/", logFile)
-}
-
-// newConfig set config for custom-zap logger
-// set log's file to filename
-// set log's time with timeLocation
-func newConfig(dev bool, logKey string, outputFile string, localTime *time.Location, outFile ...string) (cfg zap.Config) {
-	if !dev {
-		cfg = zap.Config{
-			Level:       zap.NewAtomicLevelAt(zap.InfoLevel),
-			Development: false,
-			Sampling: &zap.SamplingConfig{
-				Initial:    100,
-				Thereafter: 100,
-			},
-			Encoding:      "json",
-			EncoderConfig: zap.NewProductionEncoderConfig(),
-		}
-	} else {
-		cfg = zap.Config{
-			Level:         zap.NewAtomicLevelAt(zapcore.DebugLevel),
-			Development:   true,
-			DisableCaller: true,
-			Encoding:      "console",
-			EncoderConfig: zapcore.EncoderConfig{
-				// Keys can be anything except the empty string.
-				TimeKey:    "T",
-				LevelKey:   "L",
-				NameKey:    "N",
-				MessageKey: "M",
-				// StacktraceKey:  "S",
-				LineEnding:     zapcore.DefaultLineEnding,
-				EncodeLevel:    zapcore.CapitalLevelEncoder,
-				EncodeDuration: zapcore.StringDurationEncoder,
-			},
-		}
-	}
-
-	if logKey != "" {
-		cfg.InitialFields = map[string]interface{}{"key": logKey}
-	}
-
-	cfg.EncoderConfig.EncodeTime = func(t time.Time, e zapcore.PrimitiveArrayEncoder) {
-		e.AppendString(time.Now().In(localTime).Format(StdLogTime))
-	}
-	cfg.OutputPaths = []string{outputFile}
-	cfg.ErrorOutputPaths = []string{outputFile}
-
-	if len(outFile) > 0 {
-		for _, out := range outFile {
-			cfg.OutputPaths = append(cfg.OutputPaths, out)
-			cfg.ErrorOutputPaths = append(cfg.ErrorOutputPaths, out)
-		}
-	}
-
-	return cfg
 }
 
 func (l *Log) GetOutputFile() string {
