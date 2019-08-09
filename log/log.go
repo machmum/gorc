@@ -13,82 +13,97 @@ import (
 )
 
 const (
-	LstdFile   = "log"                 // initial value for log's directory
-	StdLogTime = "2006/01/02 15:04:05" // log's default datetime
-	StdLogFile = "2006-01-02"          // log's default filename
+	LLvlDevelopment = 1 << iota
+	LLvlProduction
+	LStdLocation = "Asia/Jakarta"        // initial value for log's location
+	LStdDir      = "log"                 // initial value for log's directory
+	LStdTime     = "2006/01/02 15:04:05" // log's default datetime
+	LStdFile     = "2006-01-02"          // log's default filename
 )
 
 type (
 	// Logger represents logger interface
-	Logger interface {
-		Log(msg string, params map[string]interface{}, err error)
-		Fatal(v ...interface{})
-		Fatalf(format string, v ...interface{})
-		GetOutputFile() string
-		GetTimeLocation() *time.Location
-	}
+	// Logger interface {
+	// 	Log(msg string, params map[string]interface{}, err error)
+	// 	Fatal(v ...interface{})
+	// 	Fatalf(format string, v ...interface{})
+	// 	GetOutputFile() string
+	// 	GetTimeLocation() *time.Location
+	// }
 
 	// Log represents logger / custom zap-logger
-	Log struct {
-		logFile string
-		config  *zap.Config
-		sugar   *zap.SugaredLogger
-		time    *time.Location
+	Logger struct {
+		file  string             // filename
+		time  *time.Location     // time used in logs
+		sugar *zap.SugaredLogger // in contexts where performance is nice, but not critical, use the SugaredLogger.
+		// In the rare contexts where every microsecond and every allocation matter,
+		// use the Logger. It's even faster than the SugaredLogger and allocates far less,
+		// but it only supports strongly-typed, structured logging.
+		logger *zap.Logger
 	}
 
 	// LogOptions represent option to custom-zap logger
-	// If Development true, log will create production-ready logger,
-	// else log will be development-ready logger.
+	// Level set log's level logger, either development or production
+	// Time set log's time location being used,
+	// default is "Asia/Jakarta". Use according to Time Zone database, such as "America/New_York".
 	// WithTrace set trace-id to logs output.
 	// RefID will set ref-id to logs output.
 	// Output file is another output file. If you want
 	// logger to write log to multiple file, add other source here.
 	// e.g : if you want logger to log to file and console, add "stdout" to LogOptions.OutputFile
 	LogOptions struct {
-		Development bool
-		WithTrace   bool
-		RefID       string
-		OutputFile  []string
+		Level      int
+		Time       *time.Location
+		WithTrace  bool
+		RefID      string
+		OutputFile []string
 	}
 )
 
-// NewLogger initiate new custom-zap logger
-func NewLogger(dir string, prefix string, opt *LogOptions) *Log {
-	return opt.newLogger(dir, prefix)
-}
-
 // newLogger return new custom-zap logger
 // set default logFile to yyyy-mm-dd.log
-func (opt *LogOptions) newLogger(dir string, prefix string) *Log {
-	var (
-		cfg             zap.Config
-		timeLocation, _ = time.LoadLocation("Asia/Jakarta")
-	)
+func (opt *LogOptions) newLogger(dir string, prefix string) *Logger {
+	// default log level is Production
+	if opt.Level < 1 {
+		opt.Level = LLvlProduction
+	}
+	// default log time is "Asia/Jakarta"
+	if opt.Time == nil {
+		opt.Time, _ = time.LoadLocation(LStdLocation)
+	}
+	logFile := opt.makeLogFile(create(dir), prefix)
 
-	logFile := makeLogFile(create(dir), prefix, timeLocation)
-
-	// cfg = opt.newConfig(opt.Development, opt.LogKey, logFile, timeLocation, opt.OutputFile...)
-	cfg = opt.newConfig(logFile, timeLocation)
-
-	logger, err := cfg.Build()
+	logger, err := opt.newConfig(logFile).Build()
 	if err != nil {
 		panic(err)
 	}
 	defer logger.Sync()
 
-	return &Log{
-		logFile: logFile,
-		config:  &cfg,
-		sugar:   logger.Sugar(),
-		time:    timeLocation,
+	return &Logger{
+		file:   logFile,
+		time:   opt.Time,
+		sugar:  logger.Sugar(),
+		logger: logger,
 	}
+}
+
+// makeLogFile set log filename
+// if there's prefix,
+// logfile will be dir/prefix-yyyy-mm-dd.log, else
+// logfile will be dir/yyyy-mm-dd.log
+func (opt *LogOptions) makeLogFile(dir, prefix string) string {
+	logFile := str.StringBuilder(time.Now().In(opt.Time).Format(LStdFile), ".", LStdDir)
+	if prefix != "" {
+		return str.StringBuilder(dir, "/", prefix, "-", logFile)
+	}
+	return str.StringBuilder(dir, "/", logFile)
 }
 
 // newConfig set config for custom-zap logger
 // set log's file to logFile
 // set log's time with timeLocation
-func (opt *LogOptions) newConfig(logFile string, localTime *time.Location) (cfg zap.Config) {
-	if !opt.Development {
+func (opt *LogOptions) newConfig(logFile string) (cfg zap.Config) {
+	if opt.Level > LLvlDevelopment {
 		cfg = zap.Config{
 			Level:       zap.NewAtomicLevelAt(zap.InfoLevel),
 			Development: false,
@@ -119,9 +134,9 @@ func (opt *LogOptions) newConfig(logFile string, localTime *time.Location) (cfg 
 		}
 	}
 
-	var used bool
+	var trace bool
 	if opt.RefID != "" {
-		used = true
+		trace = true
 		if opt.WithTrace {
 			cfg.InitialFields = map[string]interface{}{"trace-id": req.RequestID(), "ref-id": opt.RefID}
 		} else {
@@ -129,12 +144,12 @@ func (opt *LogOptions) newConfig(logFile string, localTime *time.Location) (cfg 
 		}
 	}
 
-	if opt.WithTrace && !used {
+	if opt.WithTrace && !trace {
 		cfg.InitialFields = map[string]interface{}{"trace-id": req.RequestID()}
 	}
 
 	cfg.EncoderConfig.EncodeTime = func(t time.Time, e zapcore.PrimitiveArrayEncoder) {
-		e.AppendString(time.Now().In(localTime).Format(StdLogTime))
+		e.AppendString(time.Now().In(opt.Time).Format(LStdTime))
 	}
 	cfg.OutputPaths = []string{logFile}
 	cfg.ErrorOutputPaths = []string{logFile}
@@ -155,7 +170,7 @@ func (opt *LogOptions) newConfig(logFile string, localTime *time.Location) (cfg 
 // returned log's directory : __path__/dir
 func create(dir string) string {
 	if dir == "" {
-		dir = LstdFile
+		dir = LStdDir
 	}
 
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
@@ -164,27 +179,20 @@ func create(dir string) string {
 			log.Fatalf("[log] failed to create directory: %v", err)
 		}
 	}
-
 	return dir
 }
 
-// makeLogFile set log filename
-// if there's prefix,
-// logfile will be dir/prefix-yyyy-mm-dd.log, else
-// logfile will be dir/yyyy-mm-dd.log
-func makeLogFile(dir, prefix string, localTime *time.Location) string {
-	logFile := str.StringBuilder(time.Now().In(localTime).Format(StdLogFile), ".", LstdFile)
-	if prefix != "" {
-		return str.StringBuilder(dir, "/", prefix, "-", logFile)
-	}
-	return str.StringBuilder(dir, "/", logFile)
+// NewLogger initiate new custom-zap logger,
+// by satisfy log's directoryName, prefix and options
+func NewLogger(directoryName string, prefix string, opt *LogOptions) *Logger {
+	return opt.newLogger(directoryName, prefix)
 }
 
 // Log logs using zap log.
 // msg is custom message
 // params contains key-value message. used for tracing
 // err is error
-func (l *Log) Log(msg string, params map[string]interface{}, err error) {
+func (l *Logger) Log(msg string, params map[string]interface{}, err error) {
 	var build []interface{}
 
 	if params != nil {
@@ -209,21 +217,21 @@ func (l *Log) Log(msg string, params map[string]interface{}, err error) {
 }
 
 // Fatal uses fmt.Sprint to construct and log a message, then calls os.Exit.
-func (l *Log) Fatal(v ...interface{}) {
+func (l *Logger) Fatal(v ...interface{}) {
 	l.sugar.Fatal(v...)
 }
 
 // Fatalf uses fmt.Sprintf to log a templated message, then calls os.Exit.
-func (l *Log) Fatalf(format string, v ...interface{}) {
+func (l *Logger) Fatalf(format string, v ...interface{}) {
 	l.sugar.Fatal(fmt.Sprintf(format, v...))
 }
 
 // GetOutputFile returns log's filename name.
-func (l *Log) GetOutputFile() string {
-	return l.logFile
+func (l *Logger) GetOutputFile() string {
+	return l.file
 }
 
 // GetTimeLocation return time location used in logs
-func (l *Log) GetTimeLocation() *time.Location {
+func (l *Logger) GetTimeLocation() *time.Location {
 	return l.time
 }
