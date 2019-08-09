@@ -67,10 +67,6 @@ func (opt *LogOptions) newLogger(dir string, prefix string) *Log {
 
 	// cfg = opt.newConfig(opt.Development, opt.LogKey, logFile, timeLocation, opt.OutputFile...)
 	cfg = opt.newConfig(logFile, timeLocation)
-	if opt.Development {
-		// cfg.OutputPaths = append(cfg.OutputPaths, "stdout")
-		// cfg.ErrorOutputPaths = append(cfg.ErrorOutputPaths, "stdout")
-	}
 
 	logger, err := cfg.Build()
 	if err != nil {
@@ -87,7 +83,7 @@ func (opt *LogOptions) newLogger(dir string, prefix string) *Log {
 }
 
 // newConfig set config for custom-zap logger
-// set log's file to filename
+// set log's file to logFile
 // set log's time with timeLocation
 func (opt *LogOptions) newConfig(logFile string, localTime *time.Location) (cfg zap.Config) {
 	if !opt.Development {
