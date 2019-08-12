@@ -1,33 +1,62 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 
-	gl "github.com/machmum/gorc/logger"
-	req "github.com/machmum/gorc/request"
+	"github.com/machmum/gorc/logger"
+	"github.com/machmum/gorc/request"
+	"go.uber.org/zap"
 )
 
 func main() {
-	// logger := zaplog.New(cfg.LogFile, cfg.Server.Oauth.Development, cfg.Server.Oauth.Name)
-	// get unique reqID
+	dir := "./log/oauth"
 
-	opt := &gl.LogOptions{
-		Level:      gl.LLvlDevelopment,
-		WithTrace:  true,
-		RefID:      req.RequestID(),
-		OutputFile: nil,
+	opt := &logger.LogOptions{
+		Level: logger.LLvlDevelopment,
 	}
-	logger := gl.NewLogger("./log/oauth", "", opt)
 
-	logger.Log("a full service", map[string]interface{}{"request": "a request", "response": "a response"}, nil)
-	logger.Log("an empty service", nil, nil)
+	// stdSugar := logger.NewSugaredLogger(dir, "", opt)
+	stdLogger := logger.NewLogger(dir, "", opt)
 
-	logger.Log("a full error service", map[string]interface{}{"request": "a request", "response": "a response"}, fmt.Errorf("found an error in the service"))
-	logger.Log("an empty error service", nil, fmt.Errorf("found an error in the service"))
+	stdLogger.Debug("standard debug message", zap.String("request", "a request"), zap.String("response", "a response"))
+	stdLogger.Error("standard error message", zap.String("request", "a request"), zap.String("response", "a response"))
+	stdLogger.Info("standard info message", zap.String("request", "a request"), zap.String("response", "a response"))
+	stdLogger.Warn("standard warn message", zap.String("request", "a request"), zap.String("response", "a response"))
 
-	// logger.Fatal("stop logger...")
+	log.Fatal()
+
+	// stdSugar.Log("a full service", map[string]interface{}{"request": "a request", "response": "a response"}, nil)
+	// stdSugar.Log("an empty service", nil, nil)
+	// stdSugar.Log("a full error service", map[string]interface{}{"request": "a request", "response": "a response"}, fmt.Errorf("found an error in the service"))
+	// stdSugar.Log("an empty error service", nil, fmt.Errorf("found an error in the service"))
+
+	stdLogger.Info("========================================================================")
+
+	opt = &logger.LogOptions{
+		Level:     logger.LLvlDevelopment,
+		WithTrace: true,
+	}
+	traceLogger := logger.NewLogger(dir, "", nil)
+	traceLogger.Info("info message with trace-id", zap.String("request", "a request"), zap.String("response", "a response"))
+
+	opt = &logger.LogOptions{
+		Level: logger.LLvlDevelopment,
+		RefID: request.RequestID(),
+	}
+	refLogger := logger.NewLogger(dir, "", opt)
+	refLogger.Info("info message with trace-id and ref-id", zap.String("request", "a request"), zap.String("response", "a response"))
+
+	opt = &logger.LogOptions{
+		Level:      logger.LLvlDevelopment,
+		OutputFile: []string{"stdout"},
+	}
+	stdoutLogger := logger.NewLogger(dir, "", opt)
+	stdoutLogger.Info("info message printed to both file and stdout", zap.String("request", "a request"), zap.String("response", "a response"))
+
+	stdLogger.Info("========================================================================")
+
+	stdLogger.Fatal("standard fatal message", zap.String("request", "a request"), zap.String("response", "a response"))
 
 	l := log.New(os.Stdout, "", log.LstdFlags)
 	aFunc(l)
