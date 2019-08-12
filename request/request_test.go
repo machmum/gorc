@@ -1,4 +1,4 @@
-package requestc
+package request
 
 import (
 	"testing"

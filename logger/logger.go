@@ -1,4 +1,4 @@
-package loggerc
+package logger
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"time"
 
 	req "github.com/machmum/gorc/request"
-	str "github.com/machmum/gorc/string"
+	str "github.com/machmum/gorc/stringc"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )

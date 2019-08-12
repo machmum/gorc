@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	gl "github.com/machmum/gorc/log"
+	gl "github.com/machmum/gorc/logger"
 	req "github.com/machmum/gorc/request"
 )
 
