@@ -1,4 +1,4 @@
-package gorc
+package requestc
 
 import (
 	"crypto/rand"

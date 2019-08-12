@@ -1,4 +1,4 @@
-package gorc
+package stringc
 
 import "strings"
 
