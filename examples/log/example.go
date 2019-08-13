@@ -13,7 +13,8 @@ func main() {
 	dir := "./log/oauth"
 
 	opt := &logger.LogOptions{
-		Level: logger.LLvlDevelopment,
+		Level:     logger.LLvlDevelopment,
+		WithTrace: true,
 	}
 
 	// stdSugar := logger.NewSugaredLogger(dir, "", opt)

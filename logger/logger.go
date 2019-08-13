@@ -73,6 +73,16 @@ type (
 	}
 )
 
+// GetOutputFile returns log's filename name.
+func GetOutputFile() string {
+	return filename
+}
+
+// GetTimeLocation return time location used in logs
+func GetTimeLocation() *time.Location {
+	return timeLocation
+}
+
 // makeLogFile set log filename
 // if there's prefix,
 // logfile will be dir/prefix-yyyy-mm-dd.log, else
@@ -90,34 +100,10 @@ func (opt *LogOptions) makeLogFile(dir, prefix string) string {
 // set log's time with timeLocation
 func (opt *LogOptions) newConfig(logFile string) (cfg zap.Config) {
 	if opt.Level > LLvlDevelopment {
-		cfg = zap.Config{
-			Level:       zap.NewAtomicLevelAt(zap.InfoLevel),
-			Development: false,
-			Sampling: &zap.SamplingConfig{
-				Initial:    100,
-				Thereafter: 100,
-			},
-			Encoding:      "json",
-			EncoderConfig: zap.NewProductionEncoderConfig(),
-		}
+		cfg = zap.NewProductionConfig()
 	} else {
-		cfg = zap.Config{
-			Level:         zap.NewAtomicLevelAt(zapcore.DebugLevel),
-			Development:   true,
-			DisableCaller: true,
-			Encoding:      "console",
-			EncoderConfig: zapcore.EncoderConfig{
-				// Keys can be anything except the empty string.
-				TimeKey:    "T",
-				LevelKey:   "L",
-				NameKey:    "N",
-				MessageKey: "M",
-				// StacktraceKey:  "S",
-				LineEnding:     zapcore.DefaultLineEnding,
-				EncodeLevel:    zapcore.CapitalLevelEncoder,
-				EncodeDuration: zapcore.StringDurationEncoder,
-			},
-		}
+		cfg = zap.NewDevelopmentConfig()
+		cfg.EncoderConfig.StacktraceKey = ""
 	}
 
 	var trace bool
@@ -152,7 +138,7 @@ func (opt *LogOptions) newConfig(logFile string) (cfg zap.Config) {
 
 // newLogger return new custom zap-logger
 //
-// set default logger to
+// set default logger: logs to os.stdout, production level, with Asia/Jakarta time
 // 		printed log : os.stdout
 // 		filename 	: yyyy-mm-dd.log
 // 		log level 	: production
@@ -269,14 +255,4 @@ func (l *Logger) Info(msg string, fields ...zap.Field) {
 // Warn logs the message at warn level with additional fields, if any
 func (l *Logger) Warn(msg string, fields ...zap.Field) {
 	l.logger.Warn(msg, fields...)
-}
-
-// GetOutputFile returns log's filename name.
-func GetOutputFile() string {
-	return filename
-}
-
-// GetTimeLocation return time location used in logs
-func GetTimeLocation() *time.Location {
-	return timeLocation
 }
